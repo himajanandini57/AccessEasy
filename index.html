@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AccessEasy – Accessibility scanner</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--card:#f3f4f6;--brand:#1a56db}
+@media (prefers-color-scheme:dark){:root{--bg:#111827;--fg:#f3f4f6;--card:#1f2937;--brand:#60a5fa}}
+body{font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0}
+main,header{max-width:760px;margin:0 auto;padding:16px}
+a{color:var(--brand)} .skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px}
+textarea{width:100%;height:150px;font:13px monospace;background:var(--card);color:var(--fg);border:1px solid #888;border-radius:6px;padding:8px;box-sizing:border-box}
+button,select{font:inherit;padding:8px 14px;border-radius:6px;margin:4px 4px 4px 0}
+button{background:#1a56db;color:#fff;border:0;cursor:pointer}
+:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
+#score{font-size:44px;font-weight:700}.issue{border-left:5px solid #888;background:var(--card);padding:6px 10px;margin:8px 0}
+.critical{border-color:#dc2626}.serious{border-color:#ea580c}.moderate{border-color:#ca8a04}.minor{border-color:#3b82f6}
+iframe{position:absolute;left:-9999px;width:900px;height:700px;border:0}
+</style></head><body>
+<a class="skip" href="#demo">Skip to demo</a>
+<header><h1>AccessEasy</h1>
+<p>Find accessibility barriers on any web page, get a 0–100 score, and read the problems in <strong>English, हिन्दी or ಕನ್ನಡ</strong>.</p>
+<p><a href="https://github.com/himajanandini57/accesseasy">Get the browser extension on GitHub</a> to scan any page you're visiting.</p></header>
+<main id="demo">
+<h2>Try it: paste your page's HTML</h2>
+<label for="html">HTML code</label>
+<textarea id="html"><html><body>
+<img src="logo.png">
+<a href="/x"></a>
+<input type="text">
+<button></button>
+<p style="color:#bbb;background:#fff">Low contrast text</p>
+</body></html></textarea>
+<div>
+<label for="lang">Language</label>
+<select id="lang"><option value="en">English</option><option value="hi">हिन्दी</option><option value="kn">ಕನ್ನಡ</option></select>
+<button id="scan">Scan HTML</button></div>
+<div aria-live="polite"><div><span id="score"></span> <strong id="level"></strong></div><div id="out"></div></div>
+<iframe id="f" sandbox="allow-scripts" title="hidden scan frame" tabindex="-1" aria-hidden="true"></iframe>
+<p><small>This demo scans pasted HTML in your browser; nothing is uploaded. To scan live pages (including login-protected ones), use the extension.</small></p>
+</main>
+<script>
+const W={critical:8,serious:5,moderate:2,minor:1};
+const LV={en:["Excellent","Good","Needs work","Poor"],hi:["उत्कृष्ट","अच्छा","सुधार ज़रूरी","खराब"],kn:["ಅತ್ಯುತ್ತಮ","ಉತ್ತಮ","ಸುಧಾರಣೆ ಬೇಕು","ಕಳಪೆ"]};
+const EX={
+"image-alt":{en:"Images have no description. Blind users cannot tell what the image shows.",hi:"चित्रों का कोई विवरण (alt text) नहीं है। नेत्रहीन उपयोगकर्ता नहीं जान पाते कि चित्र में क्या है।",kn:"ಚಿತ್ರಗಳಿಗೆ ವಿವರಣೆ (alt text) ಇಲ್ಲ. ದೃಷ್ಟಿಹೀನರಿಗೆ ಚಿತ್ರ ಏನೆಂದು ತಿಳಿಯುವುದಿಲ್ಲ."},
+"label":{en:"Form fields have no label. Screen reader users do not know what to type.",hi:"फ़ॉर्म के खानों पर लेबल नहीं है। स्क्रीन रीडर उपयोगकर्ता नहीं जान पाते कि क्या भरना है।",kn:"ಫಾರ್ಮ್ ಕ್ಷೇತ್ರಗಳಿಗೆ ಲೇಬಲ್ ಇಲ್ಲ. ಏನು ಬರೆಯಬೇಕೆಂದು ಸ್ಕ್ರೀನ್ ರೀಡರ್ ಬಳಕೆದಾರರಿಗೆ ತಿಳಿಯುವುದಿಲ್ಲ."},
+"color-contrast":{en:"Text colour is too close to the background. People with low vision struggle to read it.",hi:"टेक्स्ट और पृष्ठभूमि के रंग बहुत मिलते-जुलते हैं। कम दृष्टि वाले लोगों को पढ़ने में कठिनाई होती है।",kn:"ಪಠ್ಯ ಮತ್ತು ಹಿನ್ನೆಲೆಯ ಬಣ್ಣಗಳ ವ್ಯತ್ಯಾಸ ಕಡಿಮೆ ಇದೆ. ಕಡಿಮೆ ದೃಷ್ಟಿ ಇರುವವರಿಗೆ ಓದಲು ಕಷ್ಟ."},
+"link-name":{en:"Links have no understandable name. Users cannot tell where they lead.",hi:"लिंक का कोई समझने योग्य नाम नहीं है। उपयोगकर्ता नहीं जान पाते कि वह कहाँ ले जाएगा।",kn:"ಲಿಂಕ್‌ಗೆ ಅರ್ಥವಾಗುವ ಹೆಸರು ಇಲ್ಲ. ಅದು ಎಲ್ಲಿಗೆ ಹೋಗುತ್ತದೆ ಎಂದು ತಿಳಿಯುವುದಿಲ್ಲ."},
+"button-name":{en:"Buttons have no name. Users cannot tell what the button does.",hi:"बटन का कोई नाम नहीं है। उपयोगकर्ता नहीं जान पाते कि बटन क्या करता है।",kn:"ಬಟನ್‌ಗೆ ಹೆಸರು ಇಲ್ಲ. ಅದು ಏನು ಮಾಡುತ್ತದೆ ಎಂದು ತಿಳಿಯುವುದಿಲ್ಲ."},
+"html-has-lang":{en:"The page language is not set. Screen readers may pronounce text wrongly.",hi:"पृष्ठ की भाषा तय नहीं है। स्क्रीन रीडर गलत उच्चारण में पढ़ सकता है।",kn:"ಪುಟದ ಭಾಷೆಯನ್ನು ಸೂಚಿಸಿಲ್ಲ. ಸ್ಕ್ರೀನ್ ರೀಡರ್ ತಪ್ಪು ಉಚ್ಚಾರಣೆಯಲ್ಲಿ ಓದಬಹುದು."},
+"document-title":{en:"The page has no title. Users cannot tell which page they are on.",hi:"पृष्ठ का कोई शीर्षक नहीं है। उपयोगकर्ता नहीं जान पाते कि वे किस पृष्ठ पर हैं।",kn:"ಪುಟಕ್ಕೆ ಶೀರ್ಷಿಕೆ ಇಲ್ಲ. ತಾವು ಯಾವ ಪುಟದಲ್ಲಿದ್ದೇವೆ ಎಂದು ತಿಳಿಯುವುದಿಲ್ಲ."}};
+const $=id=>document.getElementById(id);let res=null;
+function render(){
+ if(!res)return;const l=$("lang").value;
+ const s=Math.max(0,100-res.reduce((a,v)=>a+(W[v.impact]||1)*Math.min(v.nodes,5),0));
+ $("score").textContent=s+"/100";$("level").textContent=LV[l][s>=90?0:s>=70?1:s>=50?2:3];
+ const o=$("out");o.textContent="";
+ res.forEach(v=>{const d=document.createElement("div");d.className="issue "+v.impact;
+  d.textContent=`[${v.impact}] ${EX[v.id]?EX[v.id][l]:v.help} (×${v.nodes})`;o.appendChild(d)});
+ if(!res.length)o.textContent="No automated issues found 🎉";
+}
+$("lang").onchange=render;
+addEventListener("message",e=>{if(e.data&&e.data.a11y){res=e.data.a11y;render()}});
+$("scan").onclick=()=>{
+ $("out").textContent="Scanning…";
+ const code=$("html").value;
+ const run='<script src="https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.2/axe.min.js"><\/script>'+
+ '<script>addEventListener("load",function(){axe.run().then(function(r){parent.postMessage({a11y:r.violations.map(function(v){return{id:v.id,impact:v.impact,help:v.help,nodes:v.nodes.length}})},"*")})})<\/script>';
+ $("f").srcdoc=code+run;
+};
+</script></body></html>
